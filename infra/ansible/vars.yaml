@@ -1,0 +1,9 @@
+# check repository readme for details on how to fill this file
+---
+gcp_sa_key_file_path: 
+pull_secret_path:
+ssh_public_key_path:
+base_domain:
+project_id:
+region:
+secret_project_id:

@@ -1,0 +1,50 @@
+---
+- name: Install Openshift
+  hosts: localhost
+  become: no
+  tasks:
+  - name: Include variable file
+    include_vars: vars.yaml
+
+  - name: Copy GCP credentials file to ~/.gcp folder
+    copy:
+      src: "{{ gcp_sa_key_file_path }}"
+      dest: ~/.gcp/
+
+  - name: Create install dir
+    file:
+      path: openshift_install
+      state: directory
+      mode: '0755'
+
+  - name: Copy over the install-config.yaml
+    template:
+      src: install-config.yaml.j2
+      dest: openshift_install/install-config.yaml
+    tags: install-config
+
+  - name: Wait until the file install log is present before continuing
+    file:
+      path: openshift_install/.openshift_install.log
+      state: absent
+
+  - name: Start installer
+    command: openshift-install create cluster --dir=openshift_install --log-level=debug      
+    async: 3600
+    poll: 0
+    register: async_installation_task
+
+  - name: Wait until the file install log is present before continuing
+    wait_for:
+      path: openshift_install/.openshift_install.log
+
+  - name: Check if installation has completed ("Failed is fine")
+    async_status:
+      jid: "{{ async_installation_task.ansible_job_id }}"
+    register: job_result
+    until: job_result.finished
+    retries: 360
+    delay: 10
+
+- name: initiate after install configuration
+  import_playbook: afterinstall.yaml 

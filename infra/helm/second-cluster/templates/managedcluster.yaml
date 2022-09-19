@@ -1,0 +1,14 @@
+apiVersion: cluster.open-cluster-management.io/v1
+kind: ManagedCluster
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+    argocd.argoproj.io/compare-options: IgnoreExtraneous
+  labels:
+    cloud: Google
+    region: us-east1
+    name: second
+    vendor: OpenShift
+  name: second 
+spec:
+  hubAcceptsClient: true

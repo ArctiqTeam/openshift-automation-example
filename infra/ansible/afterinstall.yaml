@@ -1,0 +1,57 @@
+---
+- name: Include variables
+  hosts: localhost
+  gather_facts: false
+  tasks:
+  - name: Include variable file
+    include_vars: vars.yaml
+    tags: always
+
+- name: Export KUBECONFIG
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Add kubeconfig to path
+      shell: "export KUBECONFIG={{ playbook_dir }}/openshift_install/auth/kubeconfig"
+
+- name: Install GitOps Operator
+  hosts: localhost
+  gather_facts: false
+  tasks:
+  - name: Install GitOps Operator
+    kubernetes.core.k8s:
+      state: present
+      src: "{{ playbook_dir }}/../manifests/gitops-operator.yaml"
+  
+  - name: Wait for GitOps Operator to be available
+    command: oc get deployments gitops-operator-controller-manager -n openshift-operators -o json 
+    register: cmd
+    retries: 200
+    delay: 1
+    until: cmd.rc == 0 and cmd.stdout | from_json | json_query(query) == 1
+    vars:
+      query: "status.availableReplicas"
+
+  # This secret is used within GitOps operator to inject secrets to the manifests by using ArgoCD Vault Plugin - https://argocd-vault-plugin.readthedocs.io/en/stable/
+  - name: Create GCP credentials secret
+    kubernetes.core.k8s:
+      state: present
+      definition: 
+        apiVersion: v1
+        kind: Secret
+        type: Opaque             
+        metadata:
+          name: gcp-creds
+          namespace: openshift-gitops    
+        data:
+          osServiceAccount.json: "{{ lookup('file', gcp_sa_key_file_path ) | b64encode }}"
+
+  - name: Install GitOps Operator Instance
+    kubernetes.core.k8s:
+      state: present
+      src: "{{ playbook_dir }}/../manifests/gitops-operator-instance.yaml"
+
+  - name: Install Root App (App of Apps)
+    kubernetes.core.k8s:
+      state: present
+      template: gitops-operator-root-app.yaml.j2

@@ -1,0 +1,30 @@
+apiVersion: hive.openshift.io/v1
+kind: ClusterDeployment
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+    argocd.argoproj.io/compare-options: IgnoreExtraneous
+  labels:
+    cloud: GCP
+    region: us-east1
+    vendor: OpenShift
+  name: second
+  namespace: second
+spec:
+  baseDomain: {{ .Values.baseDomain }}
+  clusterName: second
+  installAttemptsLimit: 2
+  platform:
+    gcp:
+      credentialsSecretRef:
+        name: second-gcp-creds
+      region: us-east1
+  provisioning:
+    imageSetRef:
+      name: img4.11.4-x86-64-appsub
+    installConfigSecretRef:
+      name: second-install-config
+    sshPrivateKeySecretRef:
+      name: second-ssh-private-key
+  pullSecretRef:
+    name: second-pull-secret

@@ -1,0 +1,65 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: cluster-config-project
+  namespace: "openshift-gitops"
+spec:
+  # Project description
+  description: Cluster Config Project
+  sourceRepos:
+  - git@github.com:ArctiqTeam/openshift-automation-example
+  
+  destinations:
+  - namespace: '*'
+    server: https://kubernetes.default.svc
+  
+  clusterResourceWhitelist:
+  - group: '*'
+    kind: '*'
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root-application
+  namespace: openshift-gitops
+spec:
+  destination:
+    namespace: openshift-gitops
+    server: "https://kubernetes.default.svc"
+  source:
+    path: "infra/helm/gitops-operator-applications"
+    repoURL: "https://github.com/ArctiqTeam/openshift-automation-example"
+    targetRevision:  "main"
+    helm:
+      parameters:
+      - name: baseDomain
+        value: {{ base_domain }}
+      - name: projectID
+        value: "{{ secret_project_id }}"
+  project: "cluster-config-project"
+  syncPolicy:
+    automated:
+      selfHeal: true
+    syncOptions:
+    - ApplyOutOfSyncOnly=true
+    - RespectIgnoreDifferences=true
+    retry:
+      limit: 10
+      backoff:
+        duration: 2m
+        factor: 1
+        maxDuration: 20m
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: git-repo
+  namespace: openshift-gitops
+  labels:
+    argocd.argoproj.io/secret-type: repository
+stringData:
+  url: https://github.com/ArctiqTeam/openshift-automation-example
+  name: git-repo
+  type: git
+  project: cluster-config-project

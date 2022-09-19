@@ -1,0 +1,28 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cluster-config
+  namespace: openshift-gitops
+spec:
+  destination:
+    namespace: openshift-gitops
+    server: "https://kubernetes.default.svc"
+  source:
+    path: "infra/helm/cluster-config"
+    repoURL: "https://github.com/ArctiqTeam/openshift-automation-example"
+    targetRevision:  "main"
+    plugin:
+      name: ocpConfig
+  project: "cluster-config-project"
+  syncPolicy:
+    automated:
+      selfHeal: true
+    syncOptions:
+    - ApplyOutOfSyncOnly=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 1m
+        factor: 1
+        maxDuration: 2m

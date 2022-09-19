@@ -1,0 +1,52 @@
+---
+- name: Export KUBECONFIG
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Add kubeconfig to path
+      shell: "export KUBECONFIG={{ playbook_dir }}/openshift_install/auth/kubeconfig"
+
+- name: Destroy Second (managed) cluster
+  hosts: localhost
+  gather_facts: false
+  tasks:
+
+  - name: Destroy managedcluster resource
+    kubernetes.core.k8s:
+      state: absent
+      api_version: cluster.open-cluster-management.io/v1
+      kind: ManagedCluster
+      namespace: second
+      name: second
+
+  - name: Destroy clusterdeployment resource
+    kubernetes.core.k8s:
+      state: absent
+      api_version: hive.openshift.io/v1
+      kind: ClusterDeployment
+      namespace: second
+      name: second
+
+  - name: Patch root-application application to disable auto sync
+    command: "oc patch applications/root-application -n openshift-gitops --type json --patch '[{ \"op\": \"remove\", \"path\": \"/spec/syncPolicy/automated\" }]'"
+    ignore_errors: yes
+
+  - name: Patch second cluster application to disable auto sync to avoid recreation of second (managed) cluster
+    command: "oc patch applications/second-cluster -n openshift-gitops --type json --patch '[{ \"op\": \"remove\", \"path\": \"/spec/syncPolicy/automated\" }]'"
+    ignore_errors: yes
+
+  - name: Wait until ClusterDeployment resource is deleted
+    command: oc get clusterdeployment second -n second
+    register: cmd
+    ignore_errors: yes
+    retries: 100
+    delay: 5
+    until: cmd.rc == 1
+
+- name: Uninstall Openshift
+  hosts: localhost
+  become: no
+  tasks:
+
+  - name: Start uninstaller
+    command: openshift-install destroy cluster --dir=openshift_install --log-level=debug      

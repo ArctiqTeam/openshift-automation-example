@@ -1,0 +1,65 @@
+{{- range .Values.items }}
+{{- if and (contains "worker" .metadata.name) (gt (.spec.replicas | int) 0) }}
+---
+apiVersion: machine.openshift.io/v1beta1
+kind: MachineSet
+metadata:
+  name: {{ .metadata.name | replace "worker" "infra" }}
+  namespace: openshift-machine-api
+  labels:
+    machine.openshift.io/cluster-api-cluster: {{ $.Values.runningClusterName }}
+spec:
+  replicas: {{ $.Values.infraNodes.replicas }}
+  selector:
+    matchLabels:
+      machine.openshift.io/cluster-api-cluster: {{ $.Values.runningClusterName }}
+      machine.openshift.io/cluster-api-machineset: {{ .metadata.name | replace "worker" "infra"}}
+  template:
+    metadata:
+      labels:
+        machine.openshift.io/cluster-api-cluster: {{ $.Values.runningClusterName }}
+        machine.openshift.io/cluster-api-machine-role: infra
+        machine.openshift.io/cluster-api-machine-type: infra
+        machine.openshift.io/cluster-api-machineset: {{ .metadata.name | replace "worker" "infra"}}
+    spec:
+      metadata:
+        labels:
+          node-role.kubernetes.io/infra: ""
+      providerSpec:
+        value:
+          apiVersion: machine.openshift.io/v1beta1
+          canIPForward: false
+          credentialsSecret:
+            name: gcp-cloud-credentials
+          deletionProtection: false
+          disks:
+          {{- with (first .spec.template.spec.providerSpec.value.disks) }}
+          - autoDelete: true
+            boot: true
+            image: {{ .image }}
+            labels: null
+            sizeGb: 128
+            type: pd-ssd
+          {{- end }}
+          kind: GCPMachineProviderSpec
+          machineType: {{ $.Values.infraNodes.machineType }}
+          metadata:
+            creationTimestamp: null
+          networkInterfaces:
+          - network: {{ $.Values.runningClusterName }}-network
+            subnetwork: {{ $.Values.runningClusterName }}-worker-subnet
+          projectID: {{ .spec.template.spec.providerSpec.value.projectID }}
+          region: {{ .spec.template.spec.providerSpec.value.region }}
+          serviceAccounts:
+          - email: {{ $.Values.runningClusterName }}-w@{{ .spec.template.spec.providerSpec.value.projectID }}.iam.gserviceaccount.com
+            scopes:
+            - https://www.googleapis.com/auth/cloud-platform
+          tags: {{ .spec.template.spec.providerSpec.value.tags }}
+          userDataSecret:
+            name: worker-user-data
+          zone: {{ .spec.template.spec.providerSpec.value.zone }}
+      taints:
+        - key: node-role.kubernetes.io/infra
+          effect: NoSchedule
+{{- end }}
+{{- end }}

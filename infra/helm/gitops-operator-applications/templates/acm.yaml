@@ -1,0 +1,27 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: acm
+  namespace: openshift-gitops
+spec:
+  destination:
+    namespace: open-cluster-management
+    server: "https://kubernetes.default.svc"
+  source:
+    path: "infra/manifests/acm"
+    repoURL: "https://github.com/ArctiqTeam/openshift-automation-example"
+    targetRevision: "main"
+    directory:
+      recurse: true
+  project: "cluster-config-project"
+  syncPolicy:
+    automated:
+      selfHeal: true
+    syncOptions:
+    - ApplyOutOfSyncOnly=true
+    retry:
+      limit: 10
+      backoff:
+        duration: 2m
+        factor: 1
+        maxDuration: 20m

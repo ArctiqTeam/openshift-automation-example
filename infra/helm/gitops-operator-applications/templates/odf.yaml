@@ -1,0 +1,21 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: odf
+  namespace: openshift-gitops
+spec:
+  destination:
+    namespace: openshift-storage
+    server: "https://kubernetes.default.svc"
+  source:
+    path: "infra/manifests/odf"
+    repoURL: "https://github.com/ArctiqTeam/openshift-automation-example"
+    targetRevision: "main"
+  project: "cluster-config-project"
+  syncPolicy:
+    retry:
+      limit: 3
+      backoff:
+        duration: 5m
+        factor: 1
+        maxDuration: 5m

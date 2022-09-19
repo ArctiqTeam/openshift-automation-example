@@ -1,0 +1,36 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: second-cluster
+  namespace: openshift-gitops
+spec:
+  destination:
+    namespace: second
+    server: "https://kubernetes.default.svc"
+  source:
+    path: "infra/helm/second-cluster"
+    repoURL: "https://github.com/ArctiqTeam/openshift-automation-example"
+    targetRevision: "main"
+    plugin:
+      name: argocd-vault-plugin-helm
+      env:
+      - name: helm_args
+        value: --set baseDomain={{ .Values.baseDomain }} --set projectID={{ .Values.projectID }}
+  project: "cluster-config-project"
+  ignoreDifferences:
+  - group: "internal.open-cluster-management.io"
+    kind: "ManagedClusterInfo"
+    jsonPointers:
+    - /
+  syncPolicy:
+    automated:
+      selfHeal: true
+    syncOptions:
+    - ApplyOutOfSyncOnly=true
+    - RespectIgnoreDifferences=true
+    retry:
+      limit: 10
+      backoff:
+        duration: 2m
+        factor: 1
+        maxDuration: 20m
